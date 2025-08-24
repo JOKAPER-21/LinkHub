@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JOKAPER21 | LinkHub</title>
+  <meta name="description" content="Curate, search, and share your favorite websites. 100% static: no backend, no database. Works on GitHub Pages."/>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font-family: 'Poppins', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
+    .nav-btn.active { 
+      border-bottom-color: #6366f1; 
+      color: #ffffff; 
+      font-weight: 600; 
+    }
+    .link-card { transition: transform .2s ease, box-shadow .2s ease; }
+    .link-card:hover { transform: translateY(-6px); box-shadow: 0 16px 24px rgba(0,0,0,.1); }
+    .chip { user-select: none; }
+    input:focus, select:focus { outline: 2px solid #6366f1; }
+    .link-card a:hover h3 { color: #6366f1; }
+    /* Mobile-specific styles */
+    @media (max-width: 640px) {
+      .container { padding-left: 1rem; padding-right: 1rem; }
+      .link-card { padding: 1rem; }
+      .link-card h3 { font-size: 1rem; }
+      .link-card p { font-size: 0.85rem; }
+      .chip { font-size: 0.75rem; padding: 0.25rem 0.5rem; }
+      input, select, button { font-size: 0.9rem; }
+      #upsert-website-form { grid-template-columns: 1fr; }
+      #admin-websites-grid, #viewer-websites-grid { 
+        grid-template-columns: 1fr; 
+        justify-items: center; 
+      }
+      .desktop-nav { display: none !important; }
+      .burger-menu { display: flex; }
+      .mobile-nav { 
+        display: none; 
+        flex-direction: column; 
+        position: absolute; 
+        top: 100%; 
+        left: 0; 
+        right: 0; 
+        background: white; 
+        border-bottom: 1px solid #e5e7eb; 
+        padding: 1rem; 
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        z-index: 50;
+      }
+      .mobile-nav.active { display: flex; }
+      .mobile-nav .nav-btn { 
+        width: 100%; 
+        text-align: left; 
+        padding: 0.75rem; 
+        font-size: 0.9rem; 
+      }
+      .nav-container { 
+        display: flex; 
+        justify-content: center; 
+        align-items: center; 
+        width: 100%; 
+      }
+      #viewer-sort, #admin-sort { 
+        width: 120px; 
+        padding: 0.5rem; 
+        font-size: 0.85rem; 
+      }
+      .filter-container { 
+        display: flex; 
+        flex-direction: column; 
+        gap: 0.5rem; 
+      }
+    }
+    /* Desktop-specific styles */
+    @media (min-width: 641px) {
+      .burger-menu { display: none !important; }
+      .mobile-nav { display: none !important; }
+      .desktop-nav { display: flex; }
+      #admin-websites-grid, #viewer-websites-grid { 
+        grid-template-columns: repeat(4, minmax(250px, 1fr)); 
+        justify-items: center; 
+      }
+      .nav-container { 
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center; 
+        width: 100%; 
+        max-width: 1200px; 
+      }
+      #viewer-sort, #admin-sort { 
+        width: 128px; 
+      }
+      .filter-container { 
+        display: flex; 
+        flex-direction: row; 
+        align-items: center; 
+        gap: 1rem; 
+      }
+    }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-800 dark:bg-gray-900 dark:text-gray-200">
+  <div id="app" class="min-h-screen">
+    <nav class="bg-white/90 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-40 dark:bg-gray-800/90 dark:border-gray-700">
+      <div class="container mx-auto px-4 h-16 nav-container">
+        <div class="flex items-center gap-2">
+          <span class="inline-flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-bold text-lg shadow-lg">LH</span>
+          <span class="font-extrabold text-xl tracking-tight text-gray-900 dark:text-white">LinkHub</span>
+          <p class="text-xs text-gray-600 dark:text-gray-400 hidden sm:block">Powered by JOKAPER 21</p>
+        </div>
+        <button class="burger-menu flex items-center p-2 sm:hidden" aria-label="Toggle menu">
+          <svg class="w-6 h-6 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+          </svg>
+        </button>
+        <div class="desktop-nav flex items-center gap-4">
+          <button id="viewer-nav-btn" class="nav-btn border-b-2 border-transparent text-gray-600 hover:text-gray-900 px-3 py-2 rounded-lg text-base font-medium transition-colors duration-200 dark:text-gray-400 dark:hover:text-white">Viewer</button>
+          <button id="admin-nav-btn" class="nav-btn border-b-2 border-transparent text-gray-600 hover:text-gray-900 px-3 py-2 rounded-lg text-base font-medium transition-colors duration-200 dark:text-gray-400 dark:hover:text-white">Admin</button>
+          <a href="https://jokaper-21.github.io/Happy-Blending/" target="_blank" rel="noopener noreferrer" class="inline-block">
+            <button id="jokaper-nav-btn" class="nav-btn border-b-2 border-transparent text-gray-600 hover:text-gray-900 px-3 py-2 rounded-lg text-base font-medium transition-colors duration-200 dark:text-gray-400 dark:hover:text-white">Jokaper21</button>
+          </a>
+        </div>
+        <div class="mobile-nav hidden dark:bg-gray-800" id="mobile-nav">
+          <button id="viewer-nav-mobile" class="nav-btn border-b-2 border-transparent text-gray-600 hover:text-gray-900 rounded-lg text-base font-medium transition-colors duration-200 dark:text-gray-400 dark:hover:text-white">Viewer</button>
+          <button id="admin-nav-mobile" class="nav-btn border-b-2 border-transparent text-gray-600 hover:text-gray-900 rounded-lg text-base font-medium transition-colors duration-200 dark:text-gray-400 dark:hover:text-white">Admin</button>
+          <a href="https://jokaper-21.github.io/Happy-Blending/" target="_blank" rel="noopener noreferrer" class="inline-block">
+            <button id="jokaper-nav-mobile" class="nav-btn border-b-2 border-transparent text-gray-600 hover:text-gray-900 rounded-lg text-base font-medium transition-colors duration-200 dark:text-gray-400 dark:hover:text-white">Jokaper21</button>
+          </a>
+        </div>
+      </div>
+    </nav>
+
+    <section id="login-section" class="hidden py-12 px-4">
+      <div class="max-w-md mx-auto bg-white rounded-2xl shadow-lg p-6 dark:bg-gray-900">
+        <h2 class="text-2xl font-bold mb-6 text-center text-gray-900 dark:text-white">Admin Sign in</h2>
+        <form id="login-form" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Username</label>
+            <input id="login-user" required class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" placeholder="admin"/>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Password</label>
+            <input id="login-pass" type="password" required class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" placeholder="••••••••"/>
+          </div>
+          <p id="login-error" class="hidden text-xs text-red-600 dark:text-red-400"></p>
+          <button class="w-full py-2.5 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition-colors duration-200">Sign in</button>
+        </form>
+        <p class="text-xs text-gray-500 mt-6 text-center dark:text-gray-400">Note: This is a <strong>client-only</strong> demo login. For public sites, change the credentials in the code before publishing.</p>
+      </div>
+    </section>
+
+    <section id="admin-section" class="hidden">
+      <header class="bg-white border-b border-gray-200 dark:bg-gray-800 dark:border-gray-700">
+        <div class="container mx-auto px-4 py-4 flex flex-col sm:flex-row items-center justify-between">
+          <div>
+            <h1 class="text-xl font-bold text-gray-900 dark:text-white">Admin Dashboard</h1>
+            <p id="whoami" class="text-sm text-gray-500 dark:text-gray-400">Local session</p>
+          </div>
+          <div class="flex flex-wrap gap-2 mt-3 sm:mt-0">
+            <input id="file-import" type="file" accept="application/json" class="hidden" />
+            <button id="btn-import" class="px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-100 border border-gray-300 hover:bg-gray-200 transition-colors duration-200 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:hover:bg-gray-600">Import JSON</button>
+            <button id="btn-export" class="px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-100 border border-gray-300 hover:bg-gray-200 transition-colors duration-200 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:hover:bg-gray-600">Export JSON</button>
+            <button id="logout-button" class="px-3 py-1.5 rounded-lg text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-colors duration-200">Logout</button>
+          </div>
+        </div>
+      </header>
+
+      <main class="container mx-auto p-4 space-y-6">
+        <div class="bg-white p-6 rounded-2xl shadow-lg dark:bg-gray-800">
+          <div class="flex items-center justify-between mb-4">
+            <h2 id="form-title" class="text-lg font-bold text-gray-900 dark:text-white">Add a New Website</h2>
+            <button id="reset-form" class="text-sm text-gray-600 hover:text-gray-900 hidden dark:text-gray-400 dark:hover:text-white">Reset</button>
+          </div>
+          <form id="upsert-website-form" class="grid grid-cols-1 gap-4">
+            <input type="hidden" id="editing-id" />
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Website URL (http(s)://)</label>
+              <input id="website-url" type="url" required pattern="https?://.*" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" placeholder="https://example.com"/>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Description</label>
+              <input id="website-description" type="text" required minlength="3" maxlength="140" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" placeholder="A short description (≤140 chars)"/>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Tags (comma-separated)</label>
+              <input id="website-tags" type="text" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" placeholder="design, tools"/>
+            </div>
+            <div>
+              <button class="w-full mt-2 flex items-center gap-2 justify-center py-2.5 px-4 rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition-colors duration-200">
+                <span id="submit-label">Add Website</span>
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <div class="bg-white p-6 rounded-2xl shadow-lg dark:bg-gray-800">
+          <div class="flex flex-col items-start gap-4 mb-4">
+            <h2 class="text-lg font-bold text-gray-900 dark:text-white">All Links</h2>
+            <div class="filter-container w-full">
+              <input id="admin-search" type="text" placeholder="Search..." class="w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+              <select id="admin-sort" class="px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                <option value="newest">Newest</option>
+                <option value="oldest">Oldest</option>
+                <option value="az">A → Z</option>
+                <option value="za">Z → A</option>
+              </select>
+            </div>
+          </div>
+          <div id="admin-websites-grid" class="grid gap-4"></div>
+        </div>
+      </main>
+    </section>
+
+    <section id="viewer-section">
+      <main class="container mx-auto p-4 space-y-6">
+        <div class="bg-white p-6 rounded-2xl shadow-lg dark:bg-gray-800">
+          <div class="flex flex-col gap-4">
+            <div>
+              <h2 class="text-xl font-bold text-gray-900 mb-1 dark:text-white">Explore Websites</h2>
+              <p class="text-gray-600 text-sm dark:text-gray-400">Search by title, description, or tag. Tap to open in a new tab.</p>
+            </div>
+            <div class="filter-container">
+              <input id="search-input" type="text" placeholder="Search..." class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"/>
+              <select id="viewer-sort" class="px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                <option value="relevance">Relevance</option>
+                <option value="newest">Newest</option>
+                <option value="az">A → Z</option>
+                <option value="za">Z → A</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div id="viewer-websites-grid" class="grid gap-4"></div>
+      </main>
+    </section>
+  </div>
+
+  <div id="toast" class="fixed bottom-4 left-4 right-4 bg-gray-900 text-white text-sm px-4 py-2 rounded-lg shadow-lg hidden dark:bg-gray-700"></div>
+
+  <script>
+    // ====================== Config (change me) ======================
+    const ADMIN_USER = 'admin';
+    const ADMIN_PASS = 'password';
+    const STORAGE_KEY = 'linkhub:websites:v1';
+
+    // ======================= Default Data ==========================
+    const defaultWebsites = [
+      { url: 'https://meshy.ai', description: 'AI that generates 3D models from text or images.', tags: ['AI', 'text-to-3D', 'image-to-3D'] },
+      { url: 'https://rodin.ai', description: 'Text-to-3D and image-to-3D generator with remesh and export.', tags: ['AI', 'free', 'remesh'] },
+      { url: 'https://sloyd.ai', description: 'Parametric 3D generator with text/image prompts.', tags: ['AI', 'parametric', 'text-to-3D'] },
+      { url: 'https://spline.design/ai', description: 'AI-assisted 3D creation inside Spline’s web app.', tags: ['AI', 'text-to-3D', 'design'] },
+      { url: 'https://formia.ai', description: 'Lightweight browser-based text-to-3D generator.', tags: ['AI', 'text-to-3D'] },
+      { url: 'https://lumalabs.ai/genie', description: 'Creative 3D generator from text prompts.', tags: ['AI', 'text-to-3D'] },
+      { url: 'https://blender.org', description: 'Open-source 3D suite for modeling, sculpting, animation.', tags: ['3D generalist', 'open-source'] },
+      { url: 'https://mixamo.com', description: 'Auto-rigging and motion capture animation.', tags: ['rigging', 'animation'] },
+      { url: 'https://godotengine.org', description: 'Open-source 2D/3D game engine.', tags: ['game dev', 'open-source'] },
+      { url: 'https://polyhaven.com', description: 'Free CC0 textures, HDRIs, 3D assets.', tags: ['assets', 'free'] }
+    ];
+
+    // ========================= State ===============================
+    let sessionIsAdmin = false;
+    let data = [];
+
+    // ========================= DOM ================================
+    const viewerNavBtn = document.getElementById('viewer-nav-btn');
+    const adminNavBtn = document.getElementById('admin-nav-btn');
+    const viewerNavMobile = document.getElementById('viewer-nav-mobile');
+    const adminNavMobile = document.getElementById('admin-nav-mobile');
+    const jokaperNavMobile = document.getElementById('jokaper-nav-mobile');
+    const burgerMenu = document.querySelector('.burger-menu');
+    const mobileNav = document.getElementById('mobile-nav');
+    const loginSection = document.getElementById('login-section');
+    const adminSection = document.getElementById('admin-section');
+    const viewerSection = document.getElementById('viewer-section');
+
+    const loginForm = document.getElementById('login-form');
+    const loginUser = document.getElementById('login-user');
+    const loginPass = document.getElementById('login-pass');
+    const loginError = document.getElementById('login-error');
+    const logoutButton = document.getElementById('logout-button');
+
+    const upsertForm = document.getElementById('upsert-website-form');
+    const editingId = document.getElementById('editing-id');
+    const websiteUrl = document.getElementById('website-url');
+    const websiteDescription = document.getElementById('website-description');
+    const websiteTags = document.getElementById('website-tags');
+    const submitLabel = document.getElementById('submit-label');
+    const resetFormBtn = document.getElementById('reset-form');
+
+    const adminGrid = document.getElementById('admin-websites-grid');
+    const adminSearch = document.getElementById('admin-search');
+    const adminSort = document.getElementById('admin-sort');
+
+    const viewerGrid = document.getElementById('viewer-websites-grid');
+    const viewerSearch = document.getElementById('search-input');
+    const viewerSort = document.getElementById('viewer-sort');
+
+    const fileImport = document.getElementById('file-import');
+    const btnImport = document.getElementById('btn-import');
+    const btnExport = document.getElementById('btn-export');
+
+    const toastEl = document.getElementById('toast');
+
+    // ========================= Utils ===============================
+    const uuid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
+    const nowTs = () => Date.now();
+
+    function toast(msg, ms = 2200) {
+      toastEl.textContent = msg;
+      toastEl.classList.remove('hidden');
+      clearTimeout(toastEl._t);
+      toastEl._t = setTimeout(() => toastEl.classList.add('hidden'), ms);
+    }
+
+    function save() {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch {}
+    }
+    function load() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return null;
+        return parsed;
+      } catch { return null; }
+    }
+
+    function ensureSeed() {
+      const existing = load();
+      if (existing && existing.length) { data = existing; return; }
+      data = defaultWebsites.map(w => ({ id: uuid(), createdAt: nowTs(), ...w }));
+      save();
+    }
+
+    function makeTags(tags) {
+      return (tags||[]).map(t => `<span class="chip inline-block bg-indigo-100 text-indigo-800 text-xs font-medium mr-1 mb-1 px-2 py-0.5 rounded-full dark:bg-indigo-900 dark:text-indigo-200">${t}</span>`).join('');
+    }
+
+    function cardHTML(w) {
+      const safeUrl = /^https?:\/\//.test(w.url) ? w.url : `https://${w.url}`;
+      const displayUrl = w.url.replace(/^https?:\/\//, '');
+      return `
+        <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" class="link-card bg-white p-4 rounded-xl shadow-md flex flex-col justify-between h-full dark:bg-gray-800 w-full max-w-md">
+          <div class="flex-grow">
+            <h3 class="text-base font-bold text-gray-900 truncate transition-colors duration-200 dark:text-white">${displayUrl}</h3>
+            <p class="text-gray-600 text-sm mb-3 dark:text-gray-400">${w.description||''}</p>
+          </div>
+          <div class="flex flex-wrap items-center pt-1">${makeTags(w.tags)}</div>
+          <div class="mt-3 flex items-center gap-2">
+            <button class="copy-btn px-3 py-1.5 text-xs rounded-md bg-gray-100 hover:bg-gray-200 transition-colors duration-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600" data-url="${safeUrl}">Copy link</button>
+            ${w.createdAt ? `<span class="ml-auto text-xs text-gray-500 dark:text-gray-400">${new Date(w.createdAt).toLocaleDateString()}</span>` : ''}
+          </div>
+        </a>`;
+    }
+
+    function adminCardHTML(w) {
+      const displayUrl = w.url.replace(/^https?:\/\//, '');
+      return `
+        <div class="link-card bg-white p-4 rounded-xl shadow-md flex flex-col h-full dark:bg-gray-800 w-full max-w-md" data-id="${w.id}">
+          <div class="flex-grow">
+            <div class="flex items-start gap-2 mb-2">
+              <h3 class="text-sm font-semibold truncate transition-colors duration-200 dark:text-white">${displayUrl}</h3>
+            </div>
+            <p class="text-gray-600 text-xs dark:text-gray-400">${w.description||''}</p>
+            <div class="mt-2">${makeTags(w.tags)}</div>
+          </div>
+          <div class="mt-3 flex items-center gap-2">
+            <button class="edit-btn px-3 py-1.5 text-xs rounded-md bg-indigo-600 text-white hover:bg-indigo-700 transition-colors duration-200">Edit</button>
+            <button class="del-btn px-3 py-1.5 text-xs rounded-md bg-red-100 text-red-700 hover:bg-red-200 transition-colors duration-200">Delete</button>
+          </div>
+        </div>`;
+    }
+
+    function sortItems(arr, mode) {
+      const byUrl = (a,b)=> a.url.localeCompare(b.url);
+      const byDateAsc = (a,b)=> (a.createdAt||0)-(b.createdAt||0);
+      const byDateDesc = (a,b)=> (b.createdAt||0)-(a.createdAt||0);
+      if (mode==='az') return [...arr].sort(byUrl);
+      if (mode==='za') return [...arr].sort((a,b)=>byUrl(b,a));
+      if (mode==='oldest') return [...arr].sort(byDateAsc);
+      return [...arr].sort(byDateDesc);
+    }
+
+    function filterByQueryAndTags(items, q) {
+      const term = (q||'').trim().toLowerCase();
+      return items.filter((d) => {
+        const hay = `${d.url} ${d.description} ${(d.tags||[]).join(' ')}`.toLowerCase();
+        const matchQ = term ? hay.includes(term) : true;
+        return matchQ;
+      });
+    }
+
+    function bindViewerGridHandlers(root) {
+      root.querySelectorAll('.copy-btn').forEach(btn => btn.addEventListener('click', async () => {
+        try { await navigator.clipboard.writeText(btn.dataset.url); toast('Copied link'); } catch { toast('Copy failed'); }
+      }));
+    }
+
+    function bindAdminGridHandlers(root) {
+      root.querySelectorAll('.del-btn').forEach(btn => btn.addEventListener('click', () => {
+        const card = btn.closest('[data-id]');
+        const id = card.dataset.id;
+        if (!confirm('Delete this link?')) return;
+        data = data.filter(x => x.id !== id);
+        save();
+        renderAll();
+        toast('Deleted');
+      }));
+      root.querySelectorAll('.edit-btn').forEach(btn => btn.addEventListener('click', () => {
+        const card = btn.closest('[data-id]');
+        const id = card.dataset.id;
+        const item = data.find(x=>x.id===id);
+        if (!item) return;
+        websiteUrl.value = item.url;
+        websiteDescription.value = item.description;
+        websiteTags.value = (item.tags||[]).join(', ');
+        editingId.value = id;
+        submitLabel.textContent = 'Update Website';
+        document.getElementById('form-title').textContent = 'Edit Website';
+        resetFormBtn.classList.remove('hidden');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        mobileNav.classList.remove('active');
+      }));
+    }
+
+    function renderViewer() {
+      const q = viewerSearch.value;
+      const list = viewerSort.value==='relevance' ? sortItems(filterByQueryAndTags(data, q), 'newest') : sortItems(filterByQueryAndTags(data, q), viewerSort.value);
+      viewerGrid.innerHTML = list.map(x => cardHTML(x)).join('');
+      bindViewerGridHandlers(viewerGrid);
+    }
+
+    function renderAdmin() {
+      const q = adminSearch.value;
+      const list = sortItems(filterByQueryAndTags(data, q), adminSort.value);
+      adminGrid.innerHTML = list.map(x => adminCardHTML(x)).join('');
+      bindAdminGridHandlers(adminGrid);
+    }
+
+    function renderAll() {
+      renderViewer();
+      renderAdmin();
+    }
+
+    function setActive(tab) {
+      if (tab === 'viewer') {
+        viewerSection.classList.remove('hidden');
+        adminSection.classList.add('hidden');
+        loginSection.classList.add('hidden');
+        viewerNavBtn.classList.add('active');
+        viewerNavMobile.classList.add('active');
+        adminNavBtn.classList.remove('active');
+        adminNavMobile.classList.remove('active');
+        mobileNav.classList.remove('active');
+      } else if (tab === 'admin') {
+        viewerSection.classList.add('hidden');
+        viewerNavBtn.classList.remove('active');
+        viewerNavMobile.classList.remove('active');
+        adminNavBtn.classList.add('active');
+        adminNavMobile.classList.add('active');
+        if (sessionIsAdmin) {
+          loginSection.classList.add('hidden');
+          adminSection.classList.remove('hidden');
+        } else {
+          loginSection.classList.remove('hidden');
+          adminSection.classList.add('hidden');
+        }
+        mobileNav.classList.remove('active');
+      }
+    }
+
+    // ===================== Event bindings =========================
+    viewerNavBtn.addEventListener('click', () => setActive('viewer'));
+    adminNavBtn.addEventListener('click', () => setActive('admin'));
+    viewerNavMobile.addEventListener('click', () => setActive('viewer'));
+    adminNavMobile.addEventListener('click', () => setActive('admin'));
+    jokaperNavMobile.addEventListener('click', () => mobileNav.classList.remove('active'));
+
+    burgerMenu.addEventListener('click', () => {
+      mobileNav.classList.toggle('active');
+    });
+
+    viewerSearch.addEventListener('input', renderViewer);
+    viewerSort.addEventListener('change', renderViewer);
+    adminSearch.addEventListener('input', renderAdmin);
+    adminSort.addEventListener('change', renderAdmin);
+
+    loginForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      loginError.classList.add('hidden');
+      if (loginUser.value.trim() === ADMIN_USER && loginPass.value === ADMIN_PASS) {
+        sessionIsAdmin = true;
+        toast('Signed in');
+        setActive('admin');
+      } else {
+        loginError.textContent = 'Invalid username or password';
+        loginError.classList.remove('hidden');
+      }
+    });
+
+    logoutButton.addEventListener('click', () => { 
+      sessionIsAdmin = false; 
+      toast('Signed out'); 
+      setActive('viewer'); 
+    });
+
+    upsertForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const url = websiteUrl.value.trim();
+      const description = websiteDescription.value.trim();
+      const tags = websiteTags.value.split(',').map(t=>t.trim()).filter(Boolean);
+      if (!/^https?:\/\//i.test(url)) { toast('URL must start with http(s)://'); return; }
+      if (description.length < 3) { toast('Description too short'); return; }
+      if (editingId.value) {
+        const idx = data.findIndex(x=>x.id===editingId.value);
+        if (idx>-1) { data[idx] = { ...data[idx], url, description, tags }; }
+        toast('Link updated');
+      } else {
+        data.unshift({ id: uuid(), url, description, tags, createdAt: nowTs() });
+        toast('Link added');
+      }
+      save();
+      upsertForm.reset();
+      editingId.value = '';
+      submitLabel.textContent = 'Add Website';
+      document.getElementById('form-title').textContent = 'Add a New Website';
+      resetFormBtn.classList.add('hidden');
+      renderAll();
+    });
+
+    resetFormBtn.addEventListener('click', () => {
+      upsertForm.reset(); 
+      editingId.value=''; 
+      submitLabel.textContent='Add Website'; 
+      document.getElementById('form-title').textContent='Add a New Website'; 
+      resetFormBtn.classList.add('hidden');
+    });
+
+    btnImport.addEventListener('click', ()=> fileImport.click());
+    fileImport.addEventListener('change', (e)=>{
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const arr = JSON.parse(reader.result);
+          if (!Array.isArray(arr)) throw new Error('Invalid JSON');
+          const cleaned = arr.map((o)=>({
+            id: o.id || uuid(),
+            url: String(o.url||'').trim(),
+            description: String(o.description||'').trim(),
+            tags: Array.isArray(o.tags) ? o.tags.filter(Boolean) : String(o.tags||'').split(',').map(s=>s.trim()).filter(Boolean),
+            createdAt: Number.isFinite(+o.createdAt) ? +o.createdAt : nowTs()
+          })).filter(x=>/^https?:\/\//.test(x.url) && x.description);
+          if (!cleaned.length) throw new Error('No valid items found');
+          data = cleaned;
+          save();
+          renderAll();
+          toast('Imported links');
+        } catch(err) {
+          console.error(err); 
+          toast('Import failed');
+        }
+        fileImport.value = '';
+      };
+      reader.readAsText(file);
+    });
+
+    btnExport.addEventListener('click', ()=>{
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; 
+      a.download = 'linkhub-links.json'; 
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    // ========================= Boot ===============================
+    (function boot(){
+      ensureSeed();
+      renderAll();
+      setActive('viewer');
+    })();
+  </script>
+</body>
+</html>
